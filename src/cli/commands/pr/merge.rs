@@ -7,6 +7,7 @@ use crate::core::repo::{get_manifest_repo_info, RepoInfo};
 use crate::git::{get_current_branch, open_repo, path_exists};
 use crate::platform::traits::{HostingPlatform, PlatformError};
 use crate::platform::{get_platform_adapter, CheckState, MergeMethod};
+use std::io::Write;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -46,6 +47,8 @@ pub struct MergeOptions<'a> {
     pub wait: bool,
     pub timeout: u64,
     pub delete_branch: bool,
+    pub repo_filter: Option<Vec<String>>,
+    pub yes: bool,
 }
 
 /// Run the PR merge command
@@ -72,6 +75,13 @@ pub async fn run_pr_merge(
             )
         })
         .filter(|r| !r.reference) // Skip reference repos
+        .filter(|r| {
+            if let Some(ref filter) = opts.repo_filter {
+                filter.iter().any(|f| f == &r.name)
+            } else {
+                true
+            }
+        })
         .collect();
 
     let merge_method = opts.method.copied().unwrap_or_default();
@@ -329,6 +339,26 @@ pub async fn run_pr_merge(
             spinner.finish_with_message("All checks resolved");
             println!();
         }
+    }
+
+    // When --force is used, confirm which PRs will be merged
+    if opts.force && !opts.yes && !opts.json && prs_to_merge.len() > 1 {
+        Output::warning(&format!(
+            "--force will merge {} PRs across these repos:",
+            prs_to_merge.len()
+        ));
+        for pr in &prs_to_merge {
+            println!("  - {} PR #{}", pr.repo_name, pr.pr_number);
+        }
+        print!("\nProceed? [y/N] ");
+        std::io::stdout().flush()?;
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input)?;
+        if !input.trim().eq_ignore_ascii_case("y") {
+            println!("Aborted. Use --repo to scope to specific repos.");
+            return Ok(());
+        }
+        println!();
     }
 
     // Check readiness if not forcing

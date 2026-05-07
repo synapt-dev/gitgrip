@@ -41,6 +41,8 @@ async fn test_pr_merge_no_open_prs() {
             wait: false,
             timeout: 600,
             delete_branch: true,
+            repo_filter: None,
+            yes: true,
         },
     )
     .await;
@@ -90,6 +92,8 @@ async fn test_pr_merge_skip_default_branch() {
             wait: false,
             timeout: 600,
             delete_branch: true,
+            repo_filter: None,
+            yes: true,
         },
     )
     .await;
@@ -133,6 +137,8 @@ async fn test_pr_merge_skip_reference_repos() {
             wait: false,
             timeout: 600,
             delete_branch: true,
+            repo_filter: None,
+            yes: true,
         },
     )
     .await;
@@ -175,6 +181,8 @@ async fn test_pr_merge_mixed_repos_all_skipped() {
             wait: false,
             timeout: 600,
             delete_branch: true,
+            repo_filter: None,
+            yes: true,
         },
     )
     .await;
@@ -236,6 +244,8 @@ async fn test_pr_merge_force_bypasses_checks() {
             wait: false,
             timeout: 600,
             delete_branch: true,
+            repo_filter: None,
+            yes: true,
         },
     )
     .await;
@@ -303,6 +313,8 @@ async fn test_pr_merge_branch_behind_suggests_update() {
             wait: false,
             timeout: 600,
             delete_branch: true,
+            repo_filter: None,
+            yes: true,
         },
     )
     .await;
