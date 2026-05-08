@@ -117,6 +117,8 @@ def validate_ip_config(config: IpConfig) -> None:
                 )
             seen_repos[repo] = org.name
 
+    seen_edges: set[tuple[str, str]] = set()
+
     for edge in config.edges:
         if edge.from_org == edge.to_org:
             raise ValueError(f"Edge from '{edge.from_org}' to '{edge.to_org}' is self-referencing")
@@ -124,12 +126,23 @@ def validate_ip_config(config: IpConfig) -> None:
             raise ValueError(f"'{edge.from_org}' is not a declared org")
         if edge.to_org not in seen_orgs:
             raise ValueError(f"'{edge.to_org}' is not a declared org")
+        edge_key = (edge.from_org, edge.to_org)
+        if edge_key in seen_edges:
+            raise ValueError(f"Duplicate edge from '{edge.from_org}' to '{edge.to_org}'")
+        seen_edges.add(edge_key)
 
 
 def repo_to_org(repo_name: str, config: IpConfig) -> str | None:
     for org in config.orgs:
         if repo_name in org.repos:
             return org.name
+    return None
+
+
+def _find_edge(from_org: str, to_org: str, config: IpConfig) -> DependencyEdge | None:
+    for edge in config.edges:
+        if edge.from_org == from_org and edge.to_org == to_org:
+            return edge
     return None
 
 
@@ -165,6 +178,19 @@ def check_import_violation(
     resolution = resolve_edge(source_org, target_org, config)
 
     if resolution == EdgeResolution.ALLOWED:
+        edge = _find_edge(source_org, target_org, config)
+        if edge and edge.packages and imported_package not in edge.packages:
+            return IpViolation(
+                kind="package_not_allowed",
+                source_repo=source_repo,
+                source_file=source_file,
+                target_org=target_org,
+                target_package=imported_package,
+                message=(
+                    f"{source_org} → {target_org} allows only "
+                    f"{edge.packages}, but {source_file} imports {imported_package}"
+                ),
+            )
         return None
 
     if resolution == EdgeResolution.FORBIDDEN:

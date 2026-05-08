@@ -195,6 +195,21 @@ class TestValidateIpConfig:
         with pytest.raises(ValueError, match="no repos"):
             validate_ip_config(config)
 
+    def test_duplicate_edge_raises(self) -> None:
+        config = IpConfig(
+            version=1,
+            orgs=[
+                OrgDefinition(name="a", repos=["r1"], license="MIT"),
+                OrgDefinition(name="b", repos=["r2"], license="MIT"),
+            ],
+            edges=[
+                DependencyEdge(from_org="a", to_org="b", allowed=True, packages=[]),
+                DependencyEdge(from_org="a", to_org="b", allowed=False, packages=[]),
+            ],
+        )
+        with pytest.raises(ValueError, match="Duplicate edge.*'a'.*'b'"):
+            validate_ip_config(config)
+
 
 # ── Repo-to-org resolution ──────────────────────────────────────
 
@@ -358,26 +373,73 @@ class TestCheckImportViolation:
             version=1,
             orgs=[
                 OrgDefinition(name="conversa", repos=["eval"], license="proprietary"),
-                OrgDefinition(name="synapt", repos=["recall"], license="MIT"),
+                OrgDefinition(name="synapt", repos=["recall", "grip"], license="MIT"),
             ],
             edges=[
                 DependencyEdge(
                     from_org="conversa",
                     to_org="synapt",
                     allowed=True,
-                    packages=["synapt"],
+                    packages=["recall"],
                 ),
             ],
         )
         result = check_import_violation(
             source_repo="eval",
             source_file="src/hack.py",
-            imported_package="synapt_private",
+            imported_package="grip",
             config=config,
         )
-        # synapt_private is not in the allowed packages list for this edge
-        # but we can't map it to an org without a package-to-org resolver
-        # For now, unknown packages return None
+        assert result is not None
+        assert result.kind == "package_not_allowed"
+        assert "grip" in result.message
+
+    def test_package_scoped_edge_allows_listed_package(self) -> None:
+        config = IpConfig(
+            version=1,
+            orgs=[
+                OrgDefinition(name="conversa", repos=["eval"], license="proprietary"),
+                OrgDefinition(name="synapt", repos=["recall", "grip"], license="MIT"),
+            ],
+            edges=[
+                DependencyEdge(
+                    from_org="conversa",
+                    to_org="synapt",
+                    allowed=True,
+                    packages=["recall"],
+                ),
+            ],
+        )
+        result = check_import_violation(
+            source_repo="eval",
+            source_file="src/scoring.py",
+            imported_package="recall",
+            config=config,
+        )
+        assert result is None
+
+    def test_empty_packages_allows_all(self) -> None:
+        config = IpConfig(
+            version=1,
+            orgs=[
+                OrgDefinition(name="conversa", repos=["eval"], license="proprietary"),
+                OrgDefinition(name="synapt", repos=["recall", "grip"], license="MIT"),
+            ],
+            edges=[
+                DependencyEdge(
+                    from_org="conversa",
+                    to_org="synapt",
+                    allowed=True,
+                    packages=[],
+                ),
+            ],
+        )
+        result = check_import_violation(
+            source_repo="eval",
+            source_file="src/scoring.py",
+            imported_package="grip",
+            config=config,
+        )
         assert result is None
 
     def test_unknown_source_repo_returns_none(self) -> None:
