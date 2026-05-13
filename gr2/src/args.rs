@@ -44,7 +44,7 @@ pub enum Commands {
         command: UnitCommands,
     },
 
-    /// Agent workspace management
+    /// Agent workspace registry operations
     Team {
         #[command(subcommand)]
         command: TeamCommands,
@@ -139,18 +139,18 @@ pub enum UnitCommands {
 
 #[derive(Subcommand, Debug)]
 pub enum TeamCommands {
-    /// Register a new agent workspace
+    /// Register an agent workspace in the team workspace
     Add {
-        /// Agent name
+        /// Agent workspace name
         name: String,
     },
 
     /// List registered agent workspaces
     List,
 
-    /// Remove an agent workspace
+    /// Remove a registered agent workspace
     Remove {
-        /// Agent name
+        /// Agent workspace name
         name: String,
     },
 }
